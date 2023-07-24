@@ -24,7 +24,9 @@ export class AppComponent {
 @ViewChild('type')
  typeSelect!: ElementRef <HTMLButtonElement>;
 @ViewChild('segments')
-showSegments!: ElementRef;
+isChecked: boolean = false;
+
+showSegments!: boolean= this.isChecked;
 const clearPrevious = document.getElementById('clear');
 
 const style = new Style({
@@ -190,7 +192,7 @@ public styleFunction(feature:any, segments:any, drawType?:any, tip?:any) {
     let count = 0;
     line.forEachSegment( (a:any, b:any) => {
       const segment = new LineString([a, b]);
-      const label = formatLength(segment);
+      const label = this.formatLength(segment);
       if (this.segmentStyles.length - 1 < count) {
         this.segmentStyles.push(this.segmentStyle.clone());
       }
@@ -221,7 +223,7 @@ public styleFunction(feature:any, segments:any, drawType?:any, tip?:any) {
 const vector = new VectorLayer({
   source: this.source,
   style:  (feature) => {
-    return this.styleFunction(feature, this.showSegments.nativeElement);
+    return this.styleFunction(feature, this.showSegments);
   },
 });
 
@@ -242,58 +244,54 @@ private initMap(): void {
 
 map.addInteraction(modify:any);
 
+draw: any; // global so we can remove it later
 
-  addInteraction(){
-  let draw: any; // global so we can remove it later
+addInteraction():void {
 
-  const drawType = this.typeSelect.nativeElement.value;
+  const drawType: any = this.typeSelect.nativeElement.value;
   const activeTip =
     'Click to continue drawing the ' +
     (drawType === 'Polygon' ? 'polygon' : 'line');
   const idleTip = 'Click to start measuring';
   let tip = idleTip;
-  draw = new Draw({
+  this.draw = new Draw({
     source: this.source,
     type: drawType,
-    style: function (feature) {
-      return styleFunction(feature, showSegments.checked, drawType, tip);
+    style:  (feature) => {
+      return this.styleFunction(feature, this.showSegments, drawType, tip);
     },
   });
-  draw.on('drawstart', function () {
-    if (clearPrevious.checked) {
-      source.clear();
+  this.draw.on('drawstart',  () => {
+    if (this.clearPrevious) {
+      this.source.clear();
     }
-    modify.setActive(false);
+    this.modify.setActive(false);
     tip = activeTip;
   });
-  draw.on('drawend', function () {
-    modifyStyle.setGeometry(tipPoint);
-    modify.setActive(true);
-    map.once('pointermove', function () {
-      modifyStyle.setGeometry();
+  this.draw.on('drawend',  ()=> {
+    this.modifyStyle.setGeometry(this.tipPoint);
+    this.modify.setActive(true);
+    this.map.once('pointermove',  () =>{
+      this.modifyStyle.setGeometry('pointermove');
     });
     tip = idleTip;
   });
-  modify.setActive(true);
-  map.addInteraction(draw);
+  this.modify.setActive(true);
+  this.map.addInteraction(this.draw);
 }
 
-typeSelect.onchange = function () {
-  map.removeInteraction(draw);
-  addInteraction();
+
+typeSelect.onchange =  () =>{
+  this.map.removeInteraction(this.draw);
+  this.addInteraction();
 };
 
 addInteraction();
 
-showSegments.onchange = function () {
-  vector.changed();
-  draw.getOverlay().changed();
+showSegments.onchange =  ()=> {
+  this.vector.changed();
+  this.draw.getOverlay().changed();
 };
-
 }
 
-
-function formatLength(segment: LineString) {
-  throw new Error('Function not implemented.');
-}
 
