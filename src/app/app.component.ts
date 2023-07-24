@@ -6,7 +6,8 @@ import View from 'ol/View.js';
 import { OSM, Vector as VectorSource } from 'ol/source.js';
 import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer.js';
 import Select from 'ol/interaction/Select.js';
-
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -95,6 +96,20 @@ export class AppComponent implements OnInit {
     console.log(typeShape)
     this.addInteraction(typeShape);
   }
+
+  public onDownloadPDFClick(): void {
+    const mapContainer = document.getElementById('map') as HTMLElement;//Obtiene el elemento HTML que tiene el ID "map"
+    html2canvas(mapContainer).then((canvas) => {//utiliza la biblioteca canvas
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);//Convierte el canvas en una URL de datos de imagen codificada en base64 en formato JPEG
+      const pdf = new jsPDF('landscape');//Crea una nueva instancia de jsPDF, que es una biblioteca que permite trabajar con documentos PDF en JavaScript
+      const pdfWidth = pdf.internal.pageSize.getWidth();//Agrega la imagen del mapa (capturada previamente) 
+                                                          //al PDF en la posición (0, 0) con el tamaño correspondiente al ancho y altura de la página del PDF.
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('map.pdf');
+    });
+  }
+
 }
 
 // Función de geometría personalizada para crear un cuadrado a partir de un círculo.
@@ -131,4 +146,5 @@ function createSquare(coordinates: any, geometry: any) {
 
   return geometry;
 }
+
 
