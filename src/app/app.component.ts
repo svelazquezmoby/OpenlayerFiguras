@@ -1,150 +1,299 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import Draw from 'ol/interaction/Draw.js';
 import Map from 'ol/Map.js';
-import Polygon from 'ol/geom/Polygon.js';
 import View from 'ol/View.js';
-import { OSM, Vector as VectorSource } from 'ol/source.js';
-import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer.js';
-import Select from 'ol/interaction/Select.js';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import {
+  Circle as CircleStyle,
+  Fill,
+  RegularShape,
+  Stroke,
+  Style,
+  Text,
+} from 'ol/style.js';
+import {Draw, Modify} from 'ol/interaction.js';
+import {LineString, Point} from 'ol/geom.js';
+import {OSM, Vector as VectorSource} from 'ol/source.js';
+import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer.js';
+import {getArea, getLength} from 'ol/sphere.js';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
 })
-export class AppComponent implements OnInit {
-  @ViewChild('mapElement', { static: true }) mapElement!: ElementRef;
+export class AppComponent {
+@ViewChild('mapElement', { static: true }) mapElement!: ElementRef;
+@ViewChild('type')
+ typeSelect!: ElementRef <HTMLButtonElement>;
+@ViewChild('segments')
+showSegments!: ElementRef;
+const clearPrevious = document.getElementById('clear');
 
-  private rasterLayer = new TileLayer({
-    source: new OSM(),
-  });
+const style = new Style({
+  fill: new Fill({
+    color: 'rgba(255, 255, 255, 0.2)',
+  }),
+  stroke: new Stroke({
+    color: 'rgba(0, 0, 0, 0.5)',
+    lineDash: [10, 10],
+    width: 2,
+  }),
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: 'rgba(0, 0, 0, 0.7)',
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 0.2)',
+    }),
+  }),
+});
 
-  private vectorSource = new VectorSource({ wrapX: false });
-  private vectorLayer = new VectorLayer({
-    source: this.vectorSource,
-  });
+const labelStyle = new Style({
+  text: new Text({
+    font: '14px Calibri,sans-serif',
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 1)',
+    }),
+    backgroundFill: new Fill({
+      color: 'rgba(0, 0, 0, 0.7)',
+    }),
+    padding: [3, 3, 3, 3],
+    textBaseline: 'bottom',
+    offsetY: -15,
+  }),
+  image: new RegularShape({
+    radius: 8,
+    points: 3,
+    angle: Math.PI,
+    displacement: [0, 10],
+    fill: new Fill({
+      color: 'rgba(0, 0, 0, 0.7)',
+    }),
+  }),
+});
 
-  private map!: Map;
-  private drawInteraction: Draw | null = null;
-  private isDrawing = false;
-  constructor() { }
+const tipStyle = new Style({
+  text: new Text({
+    font: '12px Calibri,sans-serif',
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 1)',
+    }),
+    backgroundFill: new Fill({
+      color: 'rgba(0, 0, 0, 0.4)',
+    }),
+    padding: [2, 2, 2, 2],
+    textAlign: 'left',
+    offsetX: 15,
+  }),
+});
 
-  ngOnInit(): void {
-    this.initMap();
-  }
+const modifyStyle = new Style({
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: 'rgba(0, 0, 0, 0.7)',
+    }),
+    fill: new Fill({
+      color: 'rgba(0, 0, 0, 0.4)',
+    }),
+  }),
+  text: new Text({
+    text: 'Drag to modify',
+    font: '12px Calibri,sans-serif',
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 1)',
+    }),
+    backgroundFill: new Fill({
+      color: 'rgba(0, 0, 0, 0.7)',
+    }),
+    padding: [2, 2, 2, 2],
+    textAlign: 'left',
+    offsetX: 15,
+  }),
+});
 
-  private initMap(): void {
-    this.map = new Map({
-      layers: [this.rasterLayer, this.vectorLayer],
-      target: this.mapElement.nativeElement,
-      view: new View({
-        center: [-11000000, 4600000],
-        zoom: 4,
-      }),
-    });
-  }
+const segmentStyle = new Style({
+  text: new Text({
+    font: '12px Calibri,sans-serif',
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 1)',
+    }),
+    backgroundFill: new Fill({
+      color: 'rgba(0, 0, 0, 0.4)',
+    }),
+    padding: [2, 2, 2, 2],
+    textBaseline: 'bottom',
+    offsetY: -12,
+  }),
+  image: new RegularShape({
+    radius: 6,
+    points: 3,
+    angle: Math.PI,
+    displacement: [0, 8],
+    fill: new Fill({
+      color: 'rgba(0, 0, 0, 0.4)',
+    }),
+  }),
+});
 
-  private addInteraction(typeShape: any): void {
-    let isFreehand: boolean = false;
-    if(typeShape=='LineString'){
-      isFreehand= true;
-    }
-    if (this.isDrawing && this.drawInteraction) {
-      this.map?.removeInteraction(this.drawInteraction);
-    }
 
-    if (typeShape !== 'None') {
-      if (typeShape === 'Square') {
-        this.drawInteraction = new Draw({
-          source: this.vectorSource,
-          type: 'Circle',
-          geometryFunction: createSquare,
-        });
-      } else {
-        this.drawInteraction = new Draw({
-          source: this.vectorSource,
-          type: typeShape,
-          freehand: isFreehand,
-        });
-      }
-      this.map?.addInteraction(this.drawInteraction);
+const segmentStyles:any [] = [this.segmentStyle];
 
-      const select = new Select();
-      this.drawInteraction.on('drawend', (event) => {
-        const geometry = event.feature.getGeometry();
-
-        select.getFeatures().clear();
-
-        if (geometry) {
-          this.vectorSource.forEachFeatureIntersectingExtent(
-            geometry.getExtent(),
-            (feature) => {
-              select.getFeatures().push(feature);
-            }
-          );
-        }
-      });
-
-      this.isDrawing = true;
-    } else {
-      this.isDrawing = false;
-    }
-  }
-
-  public onShapeButtonClick(typeShape: any): void {
-    console.log(typeShape)
-    this.addInteraction(typeShape);
-  }
-
-  public onDownloadPDFClick(): void {
-    const mapContainer = document.getElementById('map') as HTMLElement;//Obtiene el elemento HTML que tiene el ID "map"
-    html2canvas(mapContainer).then((canvas) => {//utiliza la biblioteca canvas
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);//Convierte el canvas en una URL de datos de imagen codificada en base64 en formato JPEG
-      const pdf = new jsPDF('landscape');//Crea una nueva instancia de jsPDF, que es una biblioteca que permite trabajar con documentos PDF en JavaScript
-      const pdfWidth = pdf.internal.pageSize.getWidth();//Agrega la imagen del mapa (capturada previamente) 
-                                                          //al PDF en la posición (0, 0) con el tamaño correspondiente al ancho y altura de la página del PDF.
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('map.pdf');
-    });
-  }
-
-}
-
-// Función de geometría personalizada para crear un cuadrado a partir de un círculo.
-function createSquare(coordinates: any, geometry: any) {
-  const center = coordinates[0];
-  const last = coordinates[1];
-
-  const dx = center[0] - last[0];
-  const dy = center[1] - last[1];
-  const radius = Math.sqrt(dx * dx + dy * dy);
-
-  // Calculate the angle of rotation using Math.atan2()
-  const angle = Math.atan2(dy, dx);
-
-  // Number of sides in the square
-  const numSides = 4;
-
-  const newCoordinates = [];
-  for (let i = 0; i < numSides; i++) {
-    const currentAngle = angle + (i * 2 * Math.PI) / numSides;
-    const x = center[0] + radius * Math.cos(currentAngle);
-    const y = center[1] + radius * Math.sin(currentAngle);
-    newCoordinates.push([x, y]);
-  }
-
-  // Cerrar el cuadrado
-  newCoordinates.push(newCoordinates[0].slice());
-
-  if (!geometry) {
-    geometry = new Polygon([newCoordinates]);
+const formatLength = function (line:any) {
+  const length = getLength(line);
+  let output;
+  if (length > 100) {
+    output = Math.round((length / 1000) * 100) / 100 + ' km';
   } else {
-    geometry.setCoordinates([newCoordinates]);
+    output = Math.round(length * 100) / 100 + ' m';
   }
+  return output;
+};
 
-  return geometry;
+const formatArea = function (polygon:any) {
+  const area = getArea(polygon);
+  let output;
+  if (area > 10000) {
+    output = Math.round((area / 1000000) * 100) / 100 + ' km\xB2';
+  } else {
+    output = Math.round(area * 100) / 100 + ' m\xB2';
+  }
+  return output;
+};
+
+const raster = new TileLayer({
+  source: new OSM(),
+});
+
+private source = new VectorSource();
+
+const modify = new Modify({source: this.source, style: this.modifyStyle});
+
+public tipPoint:any ;
+
+public styleFunction(feature:any, segments:any, drawType?:any, tip?:any) {
+  const styles = [this.style];
+  const geometry = feature.getGeometry();
+  const type = geometry.getType();
+  let point, label, line;
+  if (!drawType || drawType === type) {
+    if (type === 'Polygon') {
+      point = geometry.getInteriorPoint();
+      label = this.formatArea(geometry);
+      line = new LineString(geometry.getCoordinates()[0]);
+    } else if (type === 'LineString') {
+      point = new Point(geometry.getLastCoordinate());
+      label = this.formatLength(geometry);
+      line = geometry;
+    }
+  }
+  if (segments && line) {
+    let count = 0;
+    line.forEachSegment( (a:any, b:any) => {
+      const segment = new LineString([a, b]);
+      const label = formatLength(segment);
+      if (this.segmentStyles.length - 1 < count) {
+        this.segmentStyles.push(this.segmentStyle.clone());
+      }
+      const segmentPoint = new Point(segment.getCoordinateAt(0.5));
+      this.segmentStyles[count].setGeometry(segmentPoint);
+      this.segmentStyles[count].getText().setText(label);
+      styles.push(this.segmentStyles[count]);
+      count++;
+    });
+  }
+  if (label) {
+    this.labelStyle.setGeometry(point);
+    this.labelStyle.getText().setText(label);
+    styles.push(this.labelStyle);
+  }
+  if (
+    tip &&
+    type === 'Point' &&
+    !this.modify.getOverlay().getSource().getFeatures().length
+  ) {
+    this.tipPoint = geometry;
+    this.tipStyle.getText().setText(tip);
+    styles.push(this.tipStyle);
+  }
+  return styles;
 }
 
+const vector = new VectorLayer({
+  source: this.source,
+  style:  (feature) => {
+    return this.styleFunction(feature, this.showSegments.nativeElement);
+  },
+});
+
+ngOnInit(): void {
+  this.initMap();
+}
+
+private initMap(): void {
+  this.map = new Map({
+    layers: [this.raster, this.vector],
+    target: this.mapElement.nativeElement,
+    view: new View({
+      center: [-11000000, 4600000],
+      zoom: 4,
+    }),
+  });
+}
+
+map.addInteraction(modify:any);
+
+
+  addInteraction(){
+  let draw: any; // global so we can remove it later
+
+  const drawType = this.typeSelect.nativeElement.value;
+  const activeTip =
+    'Click to continue drawing the ' +
+    (drawType === 'Polygon' ? 'polygon' : 'line');
+  const idleTip = 'Click to start measuring';
+  let tip = idleTip;
+  draw = new Draw({
+    source: this.source,
+    type: drawType,
+    style: function (feature) {
+      return styleFunction(feature, showSegments.checked, drawType, tip);
+    },
+  });
+  draw.on('drawstart', function () {
+    if (clearPrevious.checked) {
+      source.clear();
+    }
+    modify.setActive(false);
+    tip = activeTip;
+  });
+  draw.on('drawend', function () {
+    modifyStyle.setGeometry(tipPoint);
+    modify.setActive(true);
+    map.once('pointermove', function () {
+      modifyStyle.setGeometry();
+    });
+    tip = idleTip;
+  });
+  modify.setActive(true);
+  map.addInteraction(draw);
+}
+
+typeSelect.onchange = function () {
+  map.removeInteraction(draw);
+  addInteraction();
+};
+
+addInteraction();
+
+showSegments.onchange = function () {
+  vector.changed();
+  draw.getOverlay().changed();
+};
+
+}
+
+
+function formatLength(segment: LineString) {
+  throw new Error('Function not implemented.');
+}
 

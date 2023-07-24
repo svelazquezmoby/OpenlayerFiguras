@@ -1,18 +1,12 @@
-<div id="map" class="map" #mapElement></div>
-<div class="row">
-  <div class="col-auto">
-    <span class="input-group">
-      <label class="input-group-text" for="type">Shape type:</label>
-      <button class="form-control" (click)="onShapeButtonClick('Circle')">Circulo</button>
-      <button #polygon value="Polygon" class="form-control" (click)="onShapeButtonClick(polygon.value)">Cuadrado</button>
-      <button class="form-control" (click)="onShapeButtonClick('None')">Ninguno</button>
-      <button #polygon value="Circle" class="form-control" (click)="onShapeButtonClick(polygon.value)">Cuadrado</button>
-      <button #polygon value="Box" class="form-control" (click)="onShapeButtonClick(polygon.value)">Box</button>
-      <button #libre value="LineString" class="form-control" (click)="onShapeButtonClick(libre.value)">Libre</button>
-      <button class="form-control" (click)="onDownloadPDFClick()">Descargar PDF</button>
 
-
-      <input class="form-control" type="button" value="Undo" id="undo" #undoButton>
-    </span>
-  </div>
-</div>
+    <div id="map" class="map"></div>
+    <form>
+      <label for="type">Measurement type &nbsp;</label>
+      <button #type value="LineString" id="type" (click)="addInteraction()"></button>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <label for="segments">Show segment lengths:&nbsp;</label>
+      <input #segment type="checkbox" id="segments" checked />
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <label for="clear">Clear previous measure:&nbsp;</label>
+      <input type="checkbox" id="clear" checked />
+    </form>
